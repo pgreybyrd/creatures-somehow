@@ -53,7 +53,7 @@ public sealed record CreatureVisualsDefinition
 
     public required CreatureScaleDefinition Scale { get; init; }
 
-    public double FootOffsetY { get; init; }
+    public int FootOffsetY { get; init; }
 
     public CreaturePointDefinition? PickupAnchor { get; init; }
 
@@ -63,11 +63,11 @@ public sealed record CreatureVisualsDefinition
 
 public sealed record CreatureScaleDefinition
 {
-    public required double Default { get; init; }
+    public required int Default { get; init; }
 
-    public required double Min { get; init; }
+    public required int Min { get; init; }
 
-    public required double Max { get; init; }
+    public required int Max { get; init; }
 }
 
 public sealed record CreaturePointDefinition
@@ -340,6 +340,8 @@ public sealed record InteractionDefinition
     public double Reach { get; init; }
 
     public string? SatisfiesNeed { get; init; }
+
+    public string? Anchor { get; init; }
 }
 
 public sealed record CreatureBehaviorsDefinition

@@ -3,6 +3,8 @@ namespace Desktop_Creatures.World.Surfaces;
 
 public class Surface
 {
+    public Guid Id { get; } = Guid.NewGuid();
+
     public Rectangle Bounds { get; }
 
     public int Left => Bounds.Left;

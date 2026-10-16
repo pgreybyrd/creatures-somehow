@@ -64,9 +64,20 @@ public abstract class Creature
 
     protected double StateTimeRemaining;
     protected double InteractionTimeRemaining;
+
+    protected CreatureDefinition Definition { get; }
+
+    private CreatureVisualsDefinition Visuals =>
+        Definition.Visuals
+        ?? throw new InvalidOperationException(
+            $"Creature '{CreatureType}' has no visuals definition.");
+
     protected CreatureSettings Settings { get; }
 
-    public int Scale => Settings.Scale;
+
+    public int BaseScale =>
+        Definition.Visuals?.Scale.Default
+        ?? 1;
     public int DisplayScale { get; private set; } = 1;
     public int SizeTier { get; init; }
     public bool IsFacingRight { get; private set; } = true;
@@ -80,26 +91,34 @@ public abstract class Creature
     public double DisplayCenterX =>
         DisplayLeft + (DisplayWidth / 2.0);
 
-    public bool SpriteFacesRight => Settings.SpriteFacesRight;
-    public int SpriteWidth => Settings.SpriteWidth * Settings.Scale;
-    public int SpriteHeight => Settings.SpriteHeight * Settings.Scale;
+    public bool SpriteFacesRight =>
+        Visuals.SpriteFacesRight;
+
+    public int SpriteWidth =>
+        Visuals.SpriteWidth *
+        BaseScale;
+    public int SpriteHeight =>
+        Visuals.SpriteHeight *
+        BaseScale;
 
     public double VisualWidth =>
         (CurrentFrame?.PixelWidth ??
-         Settings.SpriteWidth) *
-        Settings.Scale;
+         Visuals.SpriteWidth) *
+        BaseScale;
 
     public double VisualHeight =>
         (CurrentFrame?.PixelHeight ??
-         Settings.SpriteHeight) *
-        Settings.Scale;
+         Visuals.SpriteHeight) *
+        BaseScale;
 
     public bool HasBodyBounds =>
         TryGetBodyBounds(
             out _);
 
     public int CurrentFootY => GetCurrentFootY();
-    public double LandingTolerance => Settings.LandingTolerance;
+    public double LandingTolerance =>
+        Definition.Movement?.Ground?.Fall?.LandingTolerance
+        ?? 5;
 
     private readonly Point _pickupAnchor;
 
@@ -115,12 +134,11 @@ public abstract class Creature
             {
                 double x =
                     slice.CenterX *
-                    Settings.Scale;
+                    BaseScale;
 
                 double y =
                     slice.CenterY *
-                    Settings.Scale;
-
+                    BaseScale;
                 if (IsVisualMirrored)
                 {
                     x =
@@ -154,26 +172,22 @@ public abstract class Creature
 
     protected BehaviorController BehaviorController { get; } = new();
 
-    protected EatSettings Eat =>
-        Settings.Eat
+    protected InteractionDefinition Eat =>
+        Definition.Interactions?.Eat
         ?? throw new InvalidOperationException(
-            "Creature requires EatSettings.");
-    protected WalkSettings Walk =>
-        Settings.Walk
+            $"Creature '{CreatureType}' requires an eat definition.");
+    protected IdleDefinition Idle =>
+        Definition.Behaviors?.Idle
         ?? throw new InvalidOperationException(
-            "Creature requires WalkSettings.");
-    protected IdleSettings Idle =>
-        Settings.Idle
+            $"Creature '{CreatureType}' requires an idle definition.");
+    protected LocomotionDefinition Run =>
+        Definition.Movement?.Ground?.Run
         ?? throw new InvalidOperationException(
-            "Creature requires IdleSettings.");
-    protected RunSettings Run =>
-        Settings.Run
+            $"Creature '{CreatureType}' requires a run definition.");
+    protected FallDefinition Fall =>
+        Definition.Movement?.Ground?.Fall
         ?? throw new InvalidOperationException(
-            "Creature requires RunSettings.");
-    protected FallSettings Fall =>
-        Settings.Fall
-        ?? throw new InvalidOperationException(
-            "Creature requires FallSettings.");
+            $"Creature '{CreatureType}' requires a fall definition.");
 
     protected Dictionary<string, SpriteFrame[]> Animations { get; } =
         new(StringComparer.OrdinalIgnoreCase);
@@ -206,6 +220,7 @@ public abstract class Creature
         Name = name ?? string.Empty;
         CreatureType = definition.Id;
 
+        Definition = definition;
         Settings = settings;
 
         CreaturePointDefinition? pickupAnchor =
@@ -334,18 +349,10 @@ public abstract class Creature
                             CurrentFrameIndex]
                             .Name;
 
-                    if (Settings.FrameMovement.TryGetValue(
-                            frameName,
-                            out double configuredMovement))
-                    {
-                        return Math.Max(
-                            0.0,
-                            configuredMovement);
-                    }
-
-                    if (Settings.Run?.FrameMovement.TryGetValue(
-                            frameName,
-                            out configuredMovement) == true)
+                    if (Definition.Movement?.Ground?.Run?.FrameMovement
+                            .TryGetValue(
+                                frameName,
+                                out double configuredMovement) == true)
                     {
                         return Math.Max(
                             0.0,
@@ -374,16 +381,14 @@ public abstract class Creature
                 () => DisplayScale,
 
             GetSettingsScale =
-                () => Settings.Scale,
+                () => BaseScale,
 
             NextRandom =
                 (min, max) => Random.Next(min, max),
 
             NextRandomDouble =
                 (min, max) =>
-                    min +
-                    (Random.NextDouble() *
-                     (max - min)),
+                    RandomDouble(min, max),
 
             GetX =
                 () => X,
@@ -442,8 +447,8 @@ public abstract class Creature
             {
                 return
                     body.CenterX *
-                    Settings.Scale;
-            }
+                    BaseScale;
+            }   
 
             return
                 VisualWidth / 2.0;
@@ -459,7 +464,7 @@ public abstract class Creature
             {
                 return
                     body.CenterY *
-                    Settings.Scale;
+                    BaseScale;
             }
 
             return
@@ -498,6 +503,48 @@ public abstract class Creature
 
         key =
             sliceKey.Value;
+
+        return true;
+    }
+
+    protected bool TryGetInteractionMovementDestination(
+        WorldInteractionTarget target,
+        string? anchorName,
+        out MovementDestination destination)
+    {
+        destination = default!;
+
+        if (string.IsNullOrWhiteSpace(anchorName))
+            return false;
+
+        if (_spriteSheet is null ||
+            CurrentFrames.Length == 0)
+        {
+            return false;
+        }
+
+        SpriteFrame currentFrame =
+            CurrentFrames[CurrentFrameIndex];
+
+        if (!_spriteSheet.TryGetAnchor(
+                anchorName,
+                currentFrame.SheetFrameIndex,
+                out Point anchor))
+        {
+            Logger.LogDebug(
+                DebugCategory.Behavior,
+                $"INTERACTION ANCHOR MISSING: " +
+                $"creature={Definition.Id} " +
+                $"anchor={anchorName} " +
+                $"sheetFrame={currentFrame.SheetFrameIndex}");
+
+            return false;
+        }
+
+        destination =
+            new MovementDestination(
+                target.Position.X - anchor.X,
+                target.Position.Y - anchor.Y);
 
         return true;
     }
@@ -664,29 +711,29 @@ public abstract class Creature
 
     private void ConfigureDefaultBehaviors()
     {
-        if (Settings.Eat is null)
-            return;
+        if (Definition.Interactions?.Eat is not null)
+        {
+            BehaviorController.AddBehavior(
+                new NeedInteractionBehavior(
+                    needs: Needs,
+                    needType: NeedType.Hunger,
 
-        BehaviorController.AddBehavior(
-            new NeedInteractionBehavior(
-                needs: Needs,
-                needType: NeedType.Hunger,
+                    poiManager: PointOfInterestManager,
+                    poiType: PointOfInterestType.Food,
+                    interactionType: WorldInteractionPointType.Eat,
 
-                poiManager: PointOfInterestManager,
-                poiType: PointOfInterestType.Food,
-                interactionType: Eat.InteractionType,
+                    getPosition:
+                        () => new Point(X, Y),
 
-                getPosition:
-                    () => new Point(X, Y),
+                    canSearch:
+                        CanSearchForInteraction,
 
-                canSearch:
-                    CanSearchForInteraction,
+                    trySetTarget:
+                        TrySetInteractionTarget,
 
-                trySetTarget:
-                    TrySetInteractionTarget,
-
-                searchCooldownSeconds:
-                    Eat.FoodSearchCooldownSeconds));
+                    searchCooldownSeconds:
+                        Eat.SearchCooldownSeconds));
+        }
 
         BehaviorController.AddBehavior(
             new NeedInteractionBehavior(
@@ -707,7 +754,7 @@ public abstract class Creature
                     TrySetInteractionTarget,
 
                 searchCooldownSeconds:
-                    Eat.FoodSearchCooldownSeconds));
+                    Eat.SearchCooldownSeconds));
     }
 
     protected void OverrideAnimation(
@@ -961,14 +1008,34 @@ public abstract class Creature
                 GetCurrentFootY(),
                 10);
 
-        if (snappedPosition is null)
-            return false;
+if (snappedPosition is null)
+{
+    Logger.LogDebug(
+        DebugCategory.Movement,
+        $"MOVE DESTINATION FAILED: SnapToSurface returned null. " +
+        $"requested=({destination.X:F1},{destination.Y:F1}) " +
+        $"spriteWidth={SpriteWidth} " +
+        $"footY={GetCurrentFootY()}");
 
-        if (!CanReachInteractionTarget(
-                snappedPosition.Value))
-        {
-            return false;
-        }
+    return false;
+}
+
+Logger.LogDebug(
+    DebugCategory.Movement,
+    $"MOVE DESTINATION SNAPPED: " +
+    $"requested=({destination.X:F1},{destination.Y:F1}) " +
+    $"snapped=({snappedPosition.Value.X:F1},{snappedPosition.Value.Y:F1}) " +
+    $"currentSurfaceTop={(CurrentSurface is null ? "none" : CurrentSurface.Top.ToString())}");
+
+if (!CanReachInteractionTarget(
+        snappedPosition.Value))
+{
+    Logger.LogDebug(
+        DebugCategory.Movement,
+        $"MOVE DESTINATION FAILED: CanReachInteractionTarget=false");
+
+    return false;
+}
 
         TargetX =
             snappedPosition.Value.X;
@@ -977,7 +1044,7 @@ public abstract class Creature
             snappedPosition.Value.Y;
 
         MovementSpeed =
-            Run.RunSpeed *
+            Run.Speed *
             DisplayScale;
 
         SetAction(
@@ -1025,29 +1092,21 @@ public abstract class Creature
 
     protected virtual int GetCurrentFootY()
     {
+        int footOffset =
+            Visuals.FootOffsetY *
+            BaseScale;
+
         return CurrentAction switch
         {
-            CreatureAction.Running =>
-                SpriteHeight -
-                (Settings.FootOffsetY * Settings.Scale),
-
-            CreatureAction.Idle =>
-                SpriteHeight -
-                (Settings.FootOffsetY * Settings.Scale),
-
-            CreatureAction.Eating =>
-                SpriteHeight -
-                (Settings.FootOffsetY * Settings.Scale),
-
-            CreatureAction.Falling =>
-                SpriteHeight -
-                (Settings.FootOffsetY * Settings.Scale),
-
+            CreatureAction.Running or
+            CreatureAction.Idle or
+            CreatureAction.Eating or
+            CreatureAction.Falling or
             CreatureAction.Held =>
-                SpriteHeight -
-                (Settings.FootOffsetY * Settings.Scale),
+                SpriteHeight - footOffset,
 
-            _ => SpriteHeight
+            _ =>
+                SpriteHeight
         };
     }
 
@@ -1220,10 +1279,36 @@ public abstract class Creature
             $"creature={CreatureType} " +
             $"type={target.InteractionPoint.Type}");
 
-        var destination =
-            new MovementDestination(
-                target.Position.X,
-                target.Position.Y);
+        MovementDestination destination;
+
+        if (target.InteractionPoint.Type ==
+                WorldInteractionPointType.Eat &&
+            !string.IsNullOrWhiteSpace(Eat.Anchor))
+        {
+            if (!TryGetInteractionMovementDestination(
+                    target,
+                    Eat.Anchor,
+                    out destination))
+            {
+                Logger.LogDebug(
+                    DebugCategory.Behavior,
+                    $"INTERACTION REJECTED: " +
+                    $"could not resolve anchor " +
+                    $"creature={CreatureType} " +
+                    $"anchor={Eat.Anchor}");
+
+                target.InteractionPoint.Release();
+
+                return false;
+            }
+        }
+        else
+        {
+            destination =
+                new MovementDestination(
+                    target.Position.X,
+                    target.Position.Y);
+        }
 
         if (!TrySetMovementDestination(
                 destination))
@@ -1318,7 +1403,7 @@ public abstract class Creature
                 WorldInteractionPointType.Eat or
                 WorldInteractionPointType.Drink or
                 WorldInteractionPointType.Nectar =>
-                    Settings.Eat?.InteractionReach ?? 20,
+                    Definition.Interactions?.Eat?.Reach ?? 20,
 
                 WorldInteractionPointType.Perch =>
                     Settings.Flight?.ArrivalDistance ?? 10,
@@ -1424,7 +1509,7 @@ public abstract class Creature
     {
         InteractionPoi = poi;
         InteractionTimeRemaining =
-            Eat.EatDurationSeconds;
+            Eat.DurationSeconds;
 
         SpeedX = 0;
         StateTimeRemaining = 0;
@@ -1518,9 +1603,9 @@ public abstract class Creature
         SpeedX = 0;
 
         StateTimeRemaining =
-            Random.Next(
-                Idle.MinIdleSeconds,
-                Idle.MaxIdleSeconds + 1);
+            RandomDouble(
+                Idle.MinDurationSeconds,
+                Idle.MaxDurationSeconds);
     }
 
     protected virtual void UpdateIdle()
@@ -1666,7 +1751,7 @@ public abstract class Creature
 
         double moveSpeed =
             MovementSpeed *
-            Settings.Scale *
+            BaseScale *
             frameMovement;
 
         double step =
@@ -1762,14 +1847,18 @@ public abstract class Creature
             return;
         }
 
-        MovementSpeed = Run.RunSpeed * DisplayScale;
+        MovementSpeed =
+            Run.Speed *
+            DisplayScale;
 
         StateTimeRemaining =
-            Random.Next(
-                Run.MinRunSeconds,
-                Run.MaxRunSeconds + 1);
+            RandomDouble(
+                Run.MinDurationSeconds,
+                Run.MaxDurationSeconds);
 
-        SetAction(CreatureAction.Running, "Run");
+        SetAction(
+            CreatureAction.Running,
+            "Run");
     }
 
     protected virtual void FinishEating()
@@ -1808,16 +1897,19 @@ public abstract class Creature
         }
 
         double direction = Random.Next(0, 2) == 0 ? -1 : 1;
-        double desiredX = X + direction * Eat.LeaveFoodDistance;
+        double desiredX = X + direction * Eat.LeaveDistance;
 
         TargetX = Math.Clamp(desiredX, minX, maxX);
         TargetY = CurrentSurface.Top - GetCurrentFootY();
-        MovementSpeed = Run.RunSpeed * DisplayScale;
+
+        MovementSpeed =
+            Run.Speed *
+            DisplayScale;
 
         StateTimeRemaining =
-            Random.Next(
-                Run.MinRunSeconds,
-                Run.MaxRunSeconds + 1);
+            RandomDouble(
+                Run.MinDurationSeconds,
+                Run.MaxDurationSeconds);
 
         Logger.LogDebug(
             DebugCategory.Behavior,
@@ -1929,6 +2021,16 @@ public abstract class Creature
 
         SetSoundSet(
             soundSet);
+    }
+
+    protected double RandomDouble(
+        double min,
+        double max)
+    {
+        return
+            min +
+            (Random.NextDouble() *
+             (max - min));
     }
 
     public virtual void OnPickedUp()

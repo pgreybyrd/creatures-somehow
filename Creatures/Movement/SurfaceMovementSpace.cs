@@ -134,8 +134,17 @@ public sealed class SurfaceMovementSpace : IMovementSpace
 
         if (snappedPosition is null)
         {
-            resolved =
-                requested;
+            Logger.LogDebug(
+                DebugCategory.Movement,
+                $"[{context.GetCreatureId()}] " +
+                $"GROUND SNAP FAILED: " +
+                $"requested=({requested.X:F1},{requested.Y:F1}) " +
+                $"feetY={requested.Y + context.GetFootY():F1} " +
+                $"currentSurfaceTop=" +
+                $"{context.GetCurrentSurface()?.Top.ToString() ?? "none"} " +
+                $"footOffset={context.GetFootY()}");
+
+            resolved = requested;
 
             return false;
         }

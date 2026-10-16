@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Media;
+using Point = System.Windows.Point;
 
 namespace Desktop_Creatures.Graphics.Animation;
 
@@ -250,8 +251,13 @@ public static class SpriteSheetLoader
         var cropCache =
             new Dictionary<FrameRectangle, BitmapSource>();
 
-        foreach (var frameData in metadata.Frames)
+        for (int frameIndex = 0;
+             frameIndex < metadata.Frames.Count;
+             frameIndex++)
         {
+            SpriteSheetFrameData frameData =
+                metadata.Frames[frameIndex];
+
             if (frameData.Rotated)
             {
                 throw new NotSupportedException(
@@ -285,6 +291,7 @@ public static class SpriteSheetLoader
 
             frames.Add(
                 new SpriteFrame(
+                    frameIndex,
                     frameData.Filename,
                     outputFrame,
                     frameData.Duration));
@@ -479,7 +486,9 @@ public static class SpriteSheetLoader
                                 key.Bounds.X,
                                 key.Bounds.Y,
                                 key.Bounds.Width,
-                                key.Bounds.Height))
+                                key.Bounds.Height,
+                                key.Pivot?.X,
+                                key.Pivot?.Y))
                     .ToList();
 
             slices[data.Name] =
@@ -605,6 +614,24 @@ public sealed class SpriteSheet
             name,
             out slice);
     }
+
+    public bool TryGetAnchor(
+        string name,
+        int frame,
+        out Point anchor)
+    {
+        if (!Slices.TryGetValue(
+                name,
+                out SpriteSlice? slice))
+        {
+            anchor = default;
+            return false;
+        }
+
+        return slice.TryGetAnchorForFrame(
+            frame,
+            out anchor);
+    }
 }
 
 public sealed class SpriteAnimation
@@ -627,6 +654,8 @@ public sealed class SpriteAnimation
 
 public sealed class SpriteFrame
 {
+    public int SheetFrameIndex { get; }
+
     public string Name { get; }
 
     public BitmapSource Image { get; }
@@ -634,10 +663,12 @@ public sealed class SpriteFrame
     public int DurationMilliseconds { get; }
 
     internal SpriteFrame(
+        int sheetFrameIndex,
         string name,
         BitmapSource image,
         int durationMilliseconds)
     {
+        SheetFrameIndex = sheetFrameIndex;
         Name = name;
         Image = image;
         DurationMilliseconds =
@@ -670,6 +701,14 @@ internal sealed class SpriteSheetSliceData
     [JsonPropertyName("keys")]
     public List<SpriteSheetSliceKeyData> Keys { get; set; } = [];
 }
+internal sealed class SpriteSheetPointData
+{
+    [JsonPropertyName("x")]
+    public int X { get; set; }
+
+    [JsonPropertyName("y")]
+    public int Y { get; set; }
+}
 
 internal sealed class SpriteSheetSliceKeyData
 {
@@ -678,6 +717,9 @@ internal sealed class SpriteSheetSliceKeyData
 
     [JsonPropertyName("bounds")]
     public FrameRectangle Bounds { get; set; }
+
+    [JsonPropertyName("pivot")]
+    public SpriteSheetPointData? Pivot { get; set; }
 }
 
 internal sealed class SpriteSheetFrameData
@@ -733,6 +775,27 @@ public sealed class SpriteSlice
 
         return result;
     }
+
+    public bool TryGetAnchorForFrame(
+        int frame,
+        out Point anchor)
+    {
+        SpriteSliceKey? key =
+            GetKeyForFrame(frame);
+
+        if (key is null ||
+            !key.Value.HasPivot)
+        {
+            anchor = default;
+            return false;
+        }
+
+        anchor = new Point(
+            key.Value.AnchorX,
+            key.Value.AnchorY);
+
+        return true;
+    }
 }
 
 public readonly record struct SpriteSliceKey(
@@ -740,13 +803,25 @@ public readonly record struct SpriteSliceKey(
     int X,
     int Y,
     int Width,
-    int Height)
+    int Height,
+    int? PivotX,
+    int? PivotY)
 {
     public double CenterX =>
         X + Width / 2.0;
 
     public double CenterY =>
         Y + Height / 2.0;
+
+    public double AnchorX =>
+        X + (PivotX ?? Width / 2.0);
+
+    public double AnchorY =>
+        Y + (PivotY ?? Height / 2.0);
+
+    public bool HasPivot =>
+        PivotX.HasValue &&
+        PivotY.HasValue;
 }
 
 internal readonly record struct FrameRectangle

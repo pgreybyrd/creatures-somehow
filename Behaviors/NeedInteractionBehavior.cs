@@ -18,7 +18,7 @@ internal class NeedInteractionBehavior : IBehavior
     private readonly Func<bool> _canSearch;
     private readonly Func<WorldInteractionTarget, bool> _trySetTarget;
 
-    private readonly int _searchCooldownSeconds;
+    private readonly double _searchCooldownSeconds;
 
     private double _cooldownSeconds;
 
@@ -31,7 +31,7 @@ internal class NeedInteractionBehavior : IBehavior
         Func<Point> getPosition,
         Func<bool> canSearch,
         Func<WorldInteractionTarget, bool> trySetTarget,
-        int searchCooldownSeconds)
+        double searchCooldownSeconds)
     {
         _needs = needs;
         _needType = needType;
@@ -60,10 +60,26 @@ internal class NeedInteractionBehavior : IBehavior
                     deltaSeconds);
         }
 
-        if (!_needs.IsActive(_needType))
+        bool isActive =
+            _needs.IsActive(
+                _needType);
+
+        bool canSearch =
+            _canSearch();
+
+        Logger.LogDebug(
+            DebugCategory.Behavior,
+            $"NeedInteractionBehavior: " +
+            $"need={_needType}, " +
+            $"active={isActive}, " +
+            $"value={_needs.GetNeed(_needType)}, " +
+            $"canSearch={canSearch}, " +
+            $"cooldown={_cooldownSeconds:F1}");
+
+        if (!isActive)
             return;
 
-        if (!_canSearch() ||
+        if (!canSearch ||
             _cooldownSeconds > 0)
         {
             return;
@@ -89,7 +105,8 @@ internal class NeedInteractionBehavior : IBehavior
         }
 
         bool accepted =
-            _trySetTarget(target);
+            _trySetTarget(
+                target);
 
         Logger.LogDebug(
             DebugCategory.Behavior,

@@ -388,8 +388,26 @@ public partial class MainWindow : Window
                 _settings
                 );
 
+        PointOfInterest food =
+            new(
+                "TEST FOOD",
+                new Point(500, 300),
+                PointOfInterestType.Food,
+                _pointOfInterestSettings["food_bowl"],
+                _settings
+                );
+
+        food.AddWorldInteractionPoint(
+            new WorldInteractionPoint(
+                "eat",
+                WorldInteractionPointType.Eat,
+                new Point(0, 0)));
+
         _pointOfInterestManager.Add(
             poi);
+
+        _pointOfInterestManager.Add(
+            food);
     }
 
     private void MainWindow_LocationChanged(

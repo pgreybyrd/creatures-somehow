@@ -1,12 +1,12 @@
 {
-  "enabled": false,
+  "enabled": true,
 
-  "behavior": false,
-  "surface": true,
+  "behavior": true,
+  "surface": false,
   "animation": false,
   "pointOfInterest": false,
   "needs": false,
-  "movement": false,
+  "movement": true,
   "physics": false,
   "window": false,
   "assetLoading": false,
@@ -14,6 +14,6 @@
   "path": false,
   "collision": false,
   "spawning": false,
-  "input": true,
+  "input": false,
   "performance": false
 }

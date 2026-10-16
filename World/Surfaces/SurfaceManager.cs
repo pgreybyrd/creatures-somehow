@@ -34,7 +34,7 @@ public class SurfaceManager
         AddTaskbarGround(
             previousSurfaces);
 
-        AddWindowSurfaces();
+        AddWindowSurfaces(previousSurfaces);
 
         AddMenuSurface();
         AddAppSurfaces();
@@ -512,7 +512,8 @@ public class SurfaceManager
         return false;
     }
 
-    private void AddWindowSurfaces()
+    private void AddWindowSurfaces(
+        IReadOnlyList<Surface> previousSurfaces)
     {
         EnumWindows((hWnd, lParam) =>
         {
@@ -557,13 +558,19 @@ public class SurfaceManager
 
             var dipRect = ToDipRectangle(pixelRect);
 
-            _surfaces.Add(new Surface(
-                new Rectangle(
-                    dipRect.Left,
-                    dipRect.Top,
-                    dipRect.Width,
-                    1),
-                $"Window: {title}"));
+            Rectangle surfaceBounds = new(
+                dipRect.Left,
+                dipRect.Top,
+                dipRect.Width,
+                1);
+
+            string surfaceKind = $"Window: {title}";
+
+            _surfaces.Add(
+                ReuseOrCreateSurface(
+                    surfaceBounds,
+                    surfaceKind,
+                    previousSurfaces));
 
             return true;
         }, IntPtr.Zero);

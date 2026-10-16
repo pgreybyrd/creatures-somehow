@@ -897,6 +897,9 @@
    { "name": "sniff_walk", "from": 83, "to": 86, "direction": "forward", "color": "#000000ff" },
    { "name": "walk", "from": 87, "to": 92, "direction": "forward", "color": "#000000ff" },
    { "name": "held", "from": 93, "to": 96, "direction": "pingpong", "color": "#000000ff" }
+  ],
+  "slices": [
+   { "name": "mouth", "color": "#0000ffff", "keys": [{ "frame": 0, "bounds": {"x": 1, "y": 21, "w": 3, "h": 3 } }, { "frame": 14, "bounds": {"x": 1, "y": 21, "w": 3, "h": 3 }, "pivot": {"x": 2, "y": 1 } }, { "frame": 15, "bounds": {"x": 1, "y": 20, "w": 3, "h": 3 }, "pivot": {"x": 2, "y": 1 } }, { "frame": 16, "bounds": {"x": 1, "y": 22, "w": 3, "h": 3 }, "pivot": {"x": 2, "y": 1 } }, { "frame": 18, "bounds": {"x": 1, "y": 21, "w": 3, "h": 3 }, "pivot": {"x": 2, "y": 1 } }, { "frame": 19, "bounds": {"x": 2, "y": 21, "w": 3, "h": 3 }, "pivot": {"x": 2, "y": 1 } }] }
   ]
  }
 }

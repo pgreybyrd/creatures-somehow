@@ -25,13 +25,13 @@
   "ground": {
     "walk": {
       "speed": 90.0,
-      "minDurationSeconds": 1.666666667,
+      "minDurationSeconds": 1.5,
       "maxDurationSeconds": 5.0,
       "arrivalDistance": 5
     },
     "run": {
       "speed": 90.0,
-      "minDurationSeconds": 1.666666667,
+      "minDurationSeconds": 1.5,
       "maxDurationSeconds": 5.0,
       "arrivalDistance": 5
     },
@@ -63,7 +63,7 @@
   "idle": {
     "chance": 0.8,
     "minDurationSeconds": 2.5,
-    "maxDurationSeconds": 3.333333333
+    "maxDurationSeconds": 3.5
   },
 
   "sleep": {
@@ -95,7 +95,8 @@
 "interactions": {
   "eat": {
     "pointType": "Eat",
-    "durationSeconds": 1.666666667,
+    "anchor": "mouth",
+    "durationSeconds": 1.5,
     "searchCooldownSeconds": 2.0,
     "leaveDistance": 120,
     "reach": 20,
